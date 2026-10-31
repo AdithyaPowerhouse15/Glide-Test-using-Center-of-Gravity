@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aircraft Neutral Point & Longitudinal Stability Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 px-6 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-sky-400 flex items-center gap-2">
+                    <i class="fa-solid fa-plane"></i> Wing-Tail Neutral Point & Stability Simulator
+                </h1>
+                <p class="text-sm text-slate-400">Aerospace Experimental Flight Mechanics Project</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="openModal('instructionsModal')" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-2 rounded-lg transition font-medium flex items-center gap-1.5 border border-slate-600">
+                    <i class="fa-solid fa-circle-question text-sky-400"></i> Instructions
+                </button>
+                <button onclick="openModal('theoryModal')" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-2 rounded-lg transition font-medium flex items-center gap-1.5 border border-slate-600">
+                    <i class="fa-solid fa-book-open text-emerald-400"></i> Theory
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2 Columns: Canvas Simulation & Controls -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            
+            <!-- Canvas Display Card -->
+            <div class="bg-slate-800 rounded-2xl border border-slate-700 p-4 shadow-xl flex flex-col relative overflow-hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500 inline-block animate-pulse"></span>
+                        <h2 class="font-semibold text-sm text-slate-200">Real-Time Glide Test & Aircraft Attitude Simulator</h2>
+                    </div>
+                    <div id="stabilityBadge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-900 text-emerald-300 border border-emerald-700">
+                        Stable Glide
+                    </div>
+                </div>
+
+                <!-- Simulation Canvas Wrapper -->
+                <div class="relative w-full h-80 md:h-96 bg-slate-950 rounded-xl overflow-hidden border border-slate-700/60 shadow-inner">
+                    <canvas id="simCanvas" class="w-full h-full block cursor-pointer"></canvas>
+                    
+                    <!-- Overlay HUD -->
+                    <div class="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md px-3 py-2 rounded-lg border border-slate-700 text-xs space-y-1 pointer-events-none">
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 bg-blue-400 rounded-sm"></span> Wing AC (1/4 c)</div>
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 bg-amber-400 rounded-sm"></span> Tail AC (1/4 c)</div>
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 bg-purple-500 rounded-full"></span> Neutral Point (NP)</div>
+                        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 bg-red-500 rounded-full"></span> Center of Gravity (CG)</div>
+                    </div>
+
+                    <div class="absolute bottom-3 right-3 flex gap-2">
+                        <button id="launchBtn" onclick="triggerLaunch()" class="bg-sky-600 hover:bg-sky-500 text-white font-medium text-xs px-4 py-2 rounded-lg shadow-lg transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-paper-plane"></i> Launch Glide Test
+                        </button>
+                        <button onclick="resetSimulation()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg transition">
+                            <i class="fa-solid fa-rotate-right"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Card -->
+            <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl space-y-4">
+                <h3 class="font-semibold text-sm text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-sky-400"></i> Center of Gravity (CG) Adjustment
+                </h3>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span>Nose Heavy (Stable)</span>
+                        <span>Neutral Point (NP)</span>
+                        <span>Tail Heavy (Unstable)</span>
+                    </div>
+                    <input type="range" id="cgSlider" min="-50" max="50" value="-20" step="1" 
+                           class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                           oninput="updateCGFromSlider(this.value)">
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                    <button onclick="setPresetCG('stable')" class="bg-emerald-900/40 hover:bg-emerald-900/70 border border-emerald-700 text-emerald-300 text-xs py-2 rounded-xl transition font-medium">
+                        Stable Preset (-20cm)
+                    </button>
+                    <button onclick="setPresetCG('marginal')" class="bg-amber-900/40 hover:bg-amber-900/70 border border-amber-700 text-amber-300 text-xs py-2 rounded-xl transition font-medium">
+                        Marginal (0cm NP)
+                    </button>
+                    <button onclick="setPresetCG('unstable')" class="bg-rose-900/40 hover:bg-rose-900/70 border border-rose-700 text-rose-300 text-xs py-2 rounded-xl transition font-medium">
+                        Unstable Preset (+20cm)
+                    </button>
+                    <button onclick="setPresetCG('extreme')" class="bg-red-950/60 hover:bg-red-900/80 border border-red-800 text-red-300 text-xs py-2 rounded-xl transition font-medium">
+                        Severe Divergence
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Live Telemetry & Educational Metrics -->
+        <div class="flex flex-col gap-6">
+
+            <!-- Flight Dynamics Telemetry Card -->
+            <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl space-y-4">
+                <h3 class="font-semibold text-sm text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-sky-400"></i> Flight Dynamics Readout
+                </h3>
+
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <span class="text-slate-400 text-xs">CG Position relative to NP</span>
+                        <span id="statDelta" class="font-bold text-emerald-400">-0.20 m (Ahead)</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <span class="text-slate-400 text-xs">Static Margin ($SM$)</span>
+                        <span id="statStaticMargin" class="font-bold text-sky-400">+12.5%</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <span class="text-slate-400 text-xs">Pitch Moment Derivative ($C_{m\alpha}$)</span>
+                        <span id="statCmAlpha" class="font-bold text-emerald-400">Negative (Stable)</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl border border-slate-700/50">
+                        <span class="text-slate-400 text-xs">Expected Glide Behavior</span>
+                        <span id="statBehavior" class="font-bold text-emerald-300 text-right">Smooth steady glide, nose pitches down to recover.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Specs Card -->
+            <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl space-y-3">
+                <h3 class="font-semibold text-sm text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-gears text-sky-400"></i> Project Parameters
+                </h3>
+                <ul class="text-xs text-slate-300 space-y-2">
+                    <li class="flex justify-between border-b border-slate-700/50 pb-1.5">
+                        <span class="text-slate-400">Wing Span ($b$):</span> <span class="font-medium">2.4 m (Identical wings)</span>
+                    </li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-1.5">
+                        <span class="text-slate-400">Chord Length ($c$):</span> <span class="font-medium">0.23 m</span>
+                    </li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-1.5">
+                        <span class="text-slate-400">Separation Distance ($l_t$):</span> <span class="font-medium">1.76 m</span>
+                    </li>
+                    <li class="flex justify-between border-b border-slate-700/50 pb-1.5">
+                        <span class="text-slate-400">Neutral Point Location:</span> <span class="font-medium text-purple-300">Midpoint between ACs</span>
+                    </li>
+                    <li class="flex justify-between pb-0.5">
+                        <span class="text-slate-400">Aircraft Mass:</span> <span class="font-medium">1.8 kg (Ballast adjustable)</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Quick Tips Card -->
+            <div class="bg-sky-950/30 border border-sky-800/50 rounded-2xl p-4 text-xs text-sky-200 space-y-2">
+                <div class="font-semibold flex items-center gap-1.5 text-sky-300">
+                    <i class="fa-solid fa-lightbulb"></i> Student Lab Tip
+                </div>
+                <p>Observe how shifting ballast weights forward creates restoring moments when disturbed, whereas shifting weights behind the neutral point causes pitch divergence or uncontrolled tumbling!</p>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Instructions Modal -->
+    <div id="instructionsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-question text-sky-400"></i> Simulator Instructions
+                </h3>
+                <button onclick="closeModal('instructionsModal')" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="text-sm text-slate-300 space-y-3">
+                <p><strong>1. Adjust CG Position:</strong> Use the slider or preset buttons to move the Center of Gravity (red dot) ahead or behind the Neutral Point (purple dot).</p>
+                <p><strong>2. Launch Glide Test:</strong> Click the "Launch Glide Test" button to throw the aircraft from an elevated height and watch its trajectory and pitch behavior.</p>
+                <p><strong>3. Analyze Stability:</strong> 
+                   <br>• <em>Ahead of NP:</em> Pitch is stable; the glider smoothly recovers and glides down.
+                   <br>• <em>At NP:</em> Marginally stable; path drifts without restoring torque.
+                   <br>• <em>Behind NP:</em> Unstable; nose pitches up/down uncontrollably leading to stall or pitch divergence/flipping.
+                </p>
+            </div>
+            <div class="flex justify-end pt-2">
+                <button onclick="closeModal('instructionsModal')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs px-4 py-2 rounded-lg font-medium transition">
+                    Got It
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theory Modal -->
+    <div id="theoryModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-emerald-400"></i> Theoretical Background
+                </h3>
+                <button onclick="closeModal('theoryModal')" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="text-sm text-slate-300 space-y-3">
+                <p>For a wing-tail configuration consisting of two identical lifting surfaces with minimal downwash interference:</p>
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 text-center font-mono text-purple-300 text-xs">
+                    Neutral Point (NP) = Midpoint between AC<sub>wing</sub> and AC<sub>tail</sub>
+                </div>
+                <p><strong>Static Longitudinal Stability Criterion:</strong></p>
+                <ul class="list-disc pl-5 space-y-1 text-xs text-slate-300">
+                    <li><strong>Stable ($CG < NP$):</strong> Restoring moment pushes the nose back to equilibrium after a disturbance.</li>
+                    <li><strong>Unstable ($CG > NP$):</strong> Pitch divergence amplifies disturbances, leading to rapid loss of control.</li>
+                </ul>
+            </div>
+            <div class="flex justify-end pt-2">
+                <button onclick="closeModal('theoryModal')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs px-4 py-2 rounded-lg font-medium transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Simulator Logic -->
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Simulation State variables
+        let cgOffset = -20; // cm relative to Neutral Point (-50 to +50)
+        let isSimulating = false;
+        let simTime = 0;
+        let planeX = 100;
+        let planeY = 150;
+        let planeAngle = 0; // Pitch angle in radians
+        let angularVelocity = 0;
+        let trajectoryTrail = [];
+
+        // Resize canvas correctly
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function updateCGFromSlider(val) {
+            cgOffset = parseFloat(val);
+            updateTelemetry();
+            if (!isSimulating) {
+                planeAngle = (cgOffset / 50) * 0.2; // slight visual tilt in static mode
+                drawScene();
+            }
+        }
+
+        function setPresetCG(type) {
+            const slider = document.getElementById('cgSlider');
+            if (type === 'stable') slider.value = -25;
+            if (type === 'marginal') slider.value = 0;
+            if (type === 'unstable') slider.value = 25;
+            if (type === 'extreme') slider.value = 45;
+            updateCGFromSlider(slider.value);
+        }
+
+        function updateTelemetry() {
+            const deltaElem = document.getElementById('statDelta');
+            const smElem = document.getElementById('statStaticMargin');
+            const cmElem = document.getElementById('statCmAlpha');
+            const behaviorElem = document.getElementById('statBehavior');
+            const badgeElem = document.getElementById('stabilityBadge');
+
+            const meters = (cgOffset / 100).toFixed(2);
+            
+            if (cgOffset < -5) {
+                deltaElem.innerText = `${meters} m (Ahead)`;
+                deltaElem.className = "font-bold text-emerald-400";
+                smElem.innerText = `+${Math.abs(cgOffset)}%`;
+                smElem.className = "font-bold text-sky-400";
+                cmElem.innerText = "Negative (Stable)";
+                cmElem.className = "font-bold text-emerald-400";
+                behaviorElem.innerText = "Stable glide, smooth pitch response and recovery.";
+                behaviorElem.className = "font-bold text-emerald-300 text-right";
+                badgeElem.innerText = "Stable Glide";
+                badgeElem.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-900 text-emerald-300 border border-emerald-700";
+            } else if (cgOffset >= -5 && cgOffset <= 5) {
+                deltaElem.innerText = `${meters} m (At NP)`;
+                deltaElem.className = "font-bold text-amber-400";
+                smElem.innerText = "0.0%";
+                smElem.className = "font-bold text-amber-400";
+                cmElem.innerText = "Zero (Marginal)";
+                cmElem.className = "font-bold text-amber-400";
+                behaviorElem.innerText = "Marginal stability, highly sensitive to gusts.";
+                behaviorElem.className = "font-bold text-amber-300 text-right";
+                badgeElem.innerText = "Neutral Stability";
+                badgeElem.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-900 text-amber-300 border border-amber-700";
+            } else {
+                deltaElem.innerText = `+${meters} m (Behind)`;
+                deltaElem.className = "font-bold text-rose-400";
+                smElem.innerText = `-${Math.abs(cgOffset)}%`;
+                smElem.className = "font-bold text-rose-400";
+                cmElem.innerText = "Positive (Unstable)";
+                cmElem.className = "font-bold text-rose-400";
+                behaviorElem.innerText = "Pitch divergence, nose stalling or uncontrolled tumbling!";
+                behaviorElem.className = "font-bold text-rose-300 text-right";
+                badgeElem.innerText = "Pitch Divergence / Unstable";
+                badgeElem.className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-900 text-rose-300 border border-rose-700";
+            }
+        }
+
+        function triggerLaunch() {
+            isSimulating = true;
+            simTime = 0;
+            planeX = 60;
+            planeY = canvas.height / (2 * window.devicePixelRatio);
+            planeAngle = 0.05;
+            angularVelocity = 0;
+            trajectoryTrail = [];
+        }
+
+        function resetSimulation() {
+            isSimulating = false;
+            simTime = 0;
+            trajectoryTrail = [];
+            planeAngle = (cgOffset / 50) * 0.2;
+            drawScene();
+        }
+
+        // Draw background terrain and grid
+        function drawEnvironment() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid lines
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < w; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            // Ground floor
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, h - 30, w, 30);
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(0, h - 30, w, 3);
+        }
+
+        // Draw Aircraft Schematic & Markers
+        function drawAircraft(x, y, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            const scale = 1.2;
+
+            // Fuselage
+            ctx.fillStyle = '#cbd5e1';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 70 * scale, 8 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Main Wing (Front)
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(-25 * scale, -55 * scale, 20 * scale, 110 * scale);
+            ctx.strokeStyle = '#0284c7';
+            ctx.strokeRect(-25 * scale, -55 * scale, 20 * scale, 110 * scale);
+
+            // Tail Wing (Rear)
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(45 * scale, -30 * scale, 12 * scale, 60 * scale);
+            ctx.strokeStyle = '#d97706';
+            ctx.strokeRect(45 * scale, -30 * scale, 12 * scale, 60 * scale);
+
+            // Nose Cone
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.moveTo(70 * scale, -8 * scale);
+            ctx.lineTo(90 * scale, 0);
+            ctx.lineTo(70 * scale, 8 * scale);
+            ctx.closePath();
+            ctx.fill();
+
+            // AC and CG Indicator Markers on the fuselage centerline
+            // Wing AC at x = -15, Tail AC at x = +50 -> Neutral Point midpoint at x = +17.5
+            const wingAC_x = -15 * scale;
+            const tailAC_x = 51 * scale;
+            const np_x = (wingAC_x + tailAC_x) / 2;
+            const cg_x = np_x + (cgOffset * 0.8); // map slider offset to canvas pixels
+
+            // Wing AC Marker (Blue)
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(wingAC_x - 4, -14, 8, 8);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Inter';
+            ctx.fillText("ACw", wingAC_x - 10, -20);
+
+            // Tail AC Marker (Amber)
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(tailAC_x - 4, -14, 8, 8);
+            ctx.fillText("ACt", tailAC_x - 8, -20);
+
+            // Neutral Point Marker (Purple)
+            ctx.fillStyle = '#a855f7';
+            ctx.beginPath();
+            ctx.arc(np_x, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.fillStyle = '#c084fc';
+            ctx.fillText("NP", np_x - 6, 22);
+
+            // Center of Gravity Marker (Red)
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(cg_x, 0, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.fillStyle = '#f87171';
+            ctx.fillText("CG", cg_x - 6, -22);
+
+            ctx.restore();
+        }
+
+        function drawScene() {
+            drawEnvironment();
+
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+
+            if (!isSimulating) {
+                // Static display view
+                planeX = w / 3;
+                planeY = h / 2 - 20;
+                planeAngle = (cgOffset / 50) * 0.25;
+            } else {
+                // Animation physics update
+                simTime += 0.03;
+                planeX += 3.5; // forward speed
+
+                // Stability aerodynamics simulation logic
+                // Stability factor proportional to distance between NP and CG (cgOffset)
+                // Stable (cgOffset < 0): restoring torque pushes angle back to 0
+                // Unstable (cgOffset > 0): divergence torque amplifies angle
+                const stabilityFactor = -cgOffset * 0.003;
+                
+                if (cgOffset < 0) {
+                    // Stable restoring oscillation / damping glide
+                    angularVelocity = (0 - planeAngle) * 0.08 + Math.sin(simTime * 3) * 0.01;
+                    planeAngle += angularVelocity;
+                    planeY += 0.8 + planeAngle * 15; // gentle descent
+                } else if (cgOffset >= -2 && cgOffset <= 2) {
+                    // Neutral
+                    angularVelocity = (Math.random() - 0.5) * 0.02;
+                    planeAngle += angularVelocity;
+                    planeY += 1.2;
+                } else {
+                    // Unstable pitch divergence / flipping
+                    angularVelocity += stabilityFactor * 0.15;
+                    planeAngle += angularVelocity;
+                    planeY += 1.5 + Math.sin(planeAngle) * 3;
+                }
+
+                trajectoryTrail.push({x: planeX, y: planeY});
+                if (trajectoryTrail.length > 200) trajectoryTrail.shift();
+
+                // Stop if out of bounds
+                if (planeX > w - 60 || planeY > h - 45 || planeY < 20) {
+                    isSimulating = false;
+                }
+            }
+
+            // Draw Trajectory Trail
+            if (trajectoryTrail.length > 1) {
+                ctx.strokeStyle = cgOffset < 0 ? '#38bdf8' : (cgOffset === 0 ? '#fbbf24' : '#f43f5e');
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(trajectoryTrail[0].x, trajectoryTrail[0].y);
+                for (let i = 1; i < trajectoryTrail.length; i++) {
+                    ctx.lineTo(trajectoryTrail[i].x, trajectoryTrail[i].y);
+                }
+                ctx.stroke();
+            }
+
+            drawAircraft(planeX, planeY, planeAngle);
+        }
+
+        // Animation Loop
+        function animateLoop() {
+            drawScene();
+            requestAnimationFrame(animateLoop);
+        }
+
+        // Modal Handlers
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById(id).classList.add('flex');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+        }
+
+        // Initialize telemetry and start loop
+        updateTelemetry();
+        animateLoop();
+    </script>
+</body>
+</html>
